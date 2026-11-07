@@ -105,7 +105,7 @@ def syncom_load(params, simple=True):
     n_blobs = params['syncom_n_blobs']
     initial_r_sun = params['syncom_initial_R_sun']
 
-    velocity, period, blob_sizes = load_velocity_profile(simple=True)
+    velocity, period, blob_sizes = load_velocity_profile(simple=simple)
     radial_i, phi_i, theta_i, psi_deg = generate_blob_positions(n_blobs, initial_r_sun)
 
     v_arr, period_arr, L_arr, sort_idx = assign_blob_properties(n_blobs, velocity, period, blob_sizes, psi_deg)

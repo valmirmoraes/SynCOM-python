@@ -10,7 +10,7 @@ POLAR_RHO_RANGE = (5.0, 14.226)    # [Rsun] radial range of a polar frame  (sync
 def default_syncom_prams(
     SYNCOM_N_BLOBS=1000,
     SYNCOM_CADENCE=SYNCOM_CADENCE,
-    SYNCOM_PIXEL=0.014,
+    SYNCOM_PIXEL=0.0141875720451562,   # radial pixel size [Rsun], as in data_sample_1
     SYNCOM_NX=3600,
     SYNCOM_NY=659,
     SYNCOM_ACC=0,

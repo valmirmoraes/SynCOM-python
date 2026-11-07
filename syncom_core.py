@@ -75,17 +75,6 @@ def syncom_core(
     for t in range(time0, time_t):
         img = syncom_image(params, syncom_version, scalefactor, time_0, radial_i,
                    v_array, period_array, L_array, PSI, t)
-#         img = syncom_image(
-#             params=params,
-#             syncom_version=syncom_version,
-#             time_0=time_0,
-#             radial_i=radial_i,
-#             v_array=v_array,
-#             period_array=period_array,
-#             L_array=L_array,
-#             PSI=PSI,
-#             time_t=t
-#         )
         syncom_data[:, :, t - time0] = img
 
     # 6. Optionally save output
@@ -107,7 +96,7 @@ def syncom_core(
 
 def load_fits_cube(fits_dir, run_name, time0, time_t, nx, ny):
     """
-    Builds the [NX, NY, NT] cube from <run_name>_<t>.fts in fits_dir for t = time0 ... time_t-1.
+    Builds the [NX, NY, NT] cube from <run_name>_<t:04d>.fts in fits_dir for t = time0 ... time_t-1.
     Returns None if any frame is missing.
     """
     files = [Path(fits_dir) / f"{run_name}_{t:04d}.fts" for t in range(time0, time_t)]

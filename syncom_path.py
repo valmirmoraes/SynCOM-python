@@ -21,7 +21,7 @@ def syncom_output_path(run_name, kind, suffix):
     """
     Path of an output file, always named <run_name>_<suffix>:
         SynCOM_runs/<run_name>/<run_name>_params.npy
-        SynCOM_runs/<run_name>/FITS/<run_name>_<t>.fts
+        SynCOM_runs/<run_name>/FITS/<run_name>_<t:04d>.fts
         SynCOM_runs/<run_name>/cubes/<run_name>_cube.npz
         SynCOM_runs/<run_name>/movies/<run_name>_polar_movie.mp4, <run_name>_rect_movie.mp4
     """
