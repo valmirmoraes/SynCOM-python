@@ -4,15 +4,23 @@ Python implementation of **SynCOM** (Synthetic Corona Outflow Model), a simulati
 
 The original SynCOM is written in IDL. This repository translates it to Python and adds tools to work with STEREO/COR2 data and to measure outflow speeds.
 
-## Notebooks
+## Repository layout
 
-| Notebook | What it does |
+SynCOM is split into Python modules that the notebook imports:
+
+| File | What it does |
 |---|---|
-| [`SynCOM_python_functions_v2.ipynb`](SynCOM_python_functions_v2.ipynb) | **Recommended.** SynCOM translation that reproduces the IDL code (`syncom.pro`, `syncom_load.pro`, `syncom_image.pro`). Given the same blobs it matches the IDL FITS output to floating-point precision. Includes tools to load and replay an IDL run, and MP4 movie output. |
-| [`SynCOM_python_functions.ipynb`](SynCOM_python_functions.ipynb) | Version 1 of the translation, with a vectorized image generator and MP4 movie output. Kept for reference. It differs from IDL in blob placement and in how harmonic copies are summed (see the notes at the top of v2). |
-| [`COR2_data_pipeline.ipynb`](COR2_data_pipeline.ipynb) | Loads STEREO/COR2 FITS files into a 3D array, fixes known bad pixels, resamples along the radial axis and saves the result as `.npy`. |
-| [`TDC_method.ipynb`](TDC_method.ipynb) | Time-delay correlation (TDC) method: estimates the outflow velocity at each position angle by cross-correlating brightness time series at two radial distances. |
-| [`open_file.ipynb`](open_file.ipynb) | Helpers to open SynCOM/COR2 FITS data (raw, normalized, with header) and fix bad pixels. |
+| [`SynCOM_python_notebook.ipynb`](SynCOM_python_notebook.ipynb) | Step-by-step run of the model: parameters, blob profiles, images, cube, movies and the polar to Cartesian view. |
+| [`syncom_prams.py`](syncom_prams.py) | `default_syncom_prams`: simulation parameters (grid, cadence, pixel size, number of blobs, ...). |
+| [`syncom_load.py`](syncom_load.py) | `syncom_load`: velocity, period and size of each blob from its position angle. |
+| [`gaussian_function.py`](gaussian_function.py) | `gaussian_profile`, `gaussian_wave`: 1D and 2D Gaussian blob profiles. |
+| [`syncom_image.py`](syncom_image.py) | `syncom_image`: one synthetic image (sum of all blobs at one time step). |
+| [`syncom_core.py`](syncom_core.py) | `syncom_core`: runs the time loop and builds the `[NX, NY, NT]` cube; `load_fits_cube` rebuilds a cube from FITS frames. |
+| [`syncom_path.py`](syncom_path.py) | Run names and output folders (`SynCOM_runs/<run name>/...`). |
+| [`polar_to_rect.py`](polar_to_rect.py) | Polar (position angle x radius) to Cartesian image. |
+| [`syncom_movie.py`](syncom_movie.py) | Plots and MP4 movies of the polar and Cartesian cubes. |
+
+The earlier single-notebook versions (`SynCOM_python_functions.ipynb`, `SynCOM_python_functions_v2.ipynb`) and the COR2 / TDC notebooks (`COR2_data_pipeline.ipynb`, `TDC_method.ipynb`, `open_file.ipynb`) are deprecated on this branch. They are kept in the git history under the tag [`v1-deprecated`](https://github.com/valmirmoraes/SynCOM-python/tree/v1-deprecated).
 
 ## How the SynCOM model works
 
@@ -24,30 +32,32 @@ The original SynCOM is written in IDL. This repository translates it to Python a
 ## Quick start
 
 ```python
-params = default_syncom_prams(SYNCOM_N_BLOBS=5000, DATE="2023-04-11")
+from syncom_prams import default_syncom_prams
+from syncom_core import syncom_core
+from syncom_movie import save_syncom_movie
+
+params = default_syncom_prams(SYNCOM_N_BLOBS=2000)
 
 cube = syncom_core(
-    N_BLOBS=5000,
+    2000,               # number of blobs
     time0=0,
     time_t=20,          # frames 0-19
     syncom_version="v2",
-    simple=True,        # sinusoidal velocity profile
+    scale_factor=2.0,
+    simple=True,        # sinusoidal velocity profile 250 + 100 cos(2 theta) km/s
     params=params,
-    save_fits=False,    # True writes one ~19 MB FITS file per frame
 )
 
-plot_syncom_image(cube[:, :, 0])
 save_syncom_movie(cube, filename="SynCOM_v2_movie.mp4", cadence=params["syncom_cadence"])
 ```
 
-Run the notebook cells in order: the functions above are defined in `SynCOM_python_functions_v2.ipynb`.
-
-> **Note:** in v2, `FREQ_FILE` and the IDL run paths (`IDL_ROUTINES_DIR`, `IDL_RUN_DIR`) point to a local external drive. Edit them in the second code cell to match your setup. `FREQ_FILE` (`velocity_stereo_0_to_1.sav`) provides the STEREO velocity and frequency profiles.
+Outputs are written to `SynCOM_runs/<run name>/` (FITS frames, cube, movies). This folder is not tracked by git.
 
 ## Requirements
 
-- Python 3.9+ (v2 was developed with Python 3.12)
+- Python 3.9+ (developed with Python 3.12)
 - `numpy`, `scipy`, `astropy`, `matplotlib`
+- `punchbowl` (PUNCH colormap used in the plots)
 - `ffmpeg` for MP4 output (`conda install -c conda-forge ffmpeg`)
 
 ```bash
