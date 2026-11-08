@@ -49,7 +49,7 @@ def plot_rect_image(img_rect, rho_max=POLAR_RHO_RANGE[1], title="SynCOM Cartesia
 
 def save_syncom_movie(cube, filename="SynCOM_movie.mp4", title="SynCOM", start_time=None,
                       cadence=SYNCOM_CADENCE, frames=None, fps=10, cmap=cmap_punch,
-                      vmin=None, vmax=None, extent=(0.0, 360.0, 5.0, 14.226),
+                      vmin=None, vmax=None, extent=(0.0, 360.0, *POLAR_RHO_RANGE),
                       label="Intensity [arbitrary]", figsize=(12, 5.2), dpi=100):
     """
     Saves the polar cube [NX, NY, NT] as an MP4, with the same colour scale for every frame.
@@ -125,7 +125,7 @@ def save_syncom_movie(cube, filename="SynCOM_movie.mp4", title="SynCOM", start_t
 
 def save_rect_movie(cube, filename, title, start_time=None, cadence=SYNCOM_CADENCE,
                     frames=None, fps=10, cmap=cmap_punch, vmin=None, vmax=None, n=1024,
-                    rho_max=POLAR_RHO_RANGE[1], label="Intensity [arbitrary]", dpi=150):
+                    rho_range=POLAR_RHO_RANGE, label="Intensity [arbitrary]", dpi=150):
     """
     Converts each polar frame of cube [NX, NY, NT] to a Cartesian image with polar_to_rect
     and saves them as an MP4, with the same colour scale for every frame.
@@ -141,7 +141,10 @@ def save_rect_movie(cube, filename, title, start_time=None, cadence=SYNCOM_CADEN
         fps (int): Frames per second of the video
         vmin, vmax (float): Colour limits (default: 1st and 99.5th percentiles of the cube)
         n (int): Pixels per side of the Cartesian image
+        rho_range (tuple): (r_min, r_max) [Rsun] of the polar frames (default POLAR_RHO_RANGE;
+            use syncom_prams.polar_rho_range(params) for a run with a non-default pixel size)
     """
+    rho_max = rho_range[1]
     if shutil.which("ffmpeg") is None:
         raise RuntimeError("ffmpeg not found. Install it with: conda install -c conda-forge ffmpeg")
     frames = list(range(cube.shape[2])) if frames is None else list(frames)
@@ -157,7 +160,7 @@ def save_rect_movie(cube, filename, title, start_time=None, cadence=SYNCOM_CADEN
     cmap.set_bad("black")                     # occulter and outside the field of view
 
     def rect_frame(k):
-        r = polar_to_rect(cube[:, :, k], POLAR_PHI_RANGE, POLAR_RHO_RANGE, n=n)
+        r = polar_to_rect(cube[:, :, k], POLAR_PHI_RANGE, rho_range, n=n)
         return np.where(r == 0, np.nan, r).T  # .T -> imshow rows = y
 
     def frame_title(i, k):

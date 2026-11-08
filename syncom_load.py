@@ -1,5 +1,8 @@
 import numpy as np
 
+from syncom_prams import POLAR_RHO_RANGE
+from syncom_image import EDGE_SIGMAS
+
 
 DEG2RAD = np.pi / 180.0
 RAD2DEG = 180.0 / np.pi
@@ -121,4 +124,60 @@ def syncom_load(params, simple=True):
         "outarray": outarray,
         "velocity": velocity,
         "period": period
+    }
+
+
+RSUN_KM = 696000.0     # [km] solar radius
+
+
+def syncom_blob_table(params, LoadStruc, scale_factor=None, seed=22):
+    """
+    Per-blob table in image units (pixels and frames), computed once per run and
+    used for every time step (syncom_core and syncom_image read from it).
+
+    Expected behaviour:
+        - A blob begins from its centre, not from its edge. r0 is where the centre is at
+          launch: EDGE_SIGMAS (6) radial widths (6 * 2L = 12L px) below the radius where
+          blobs enter the image, SYNCOM_INITIAL_R_SUN. With SYNCOM_INITIAL_R_SUN = 5 Rsun
+          (the bottom of the polar image) r0 = -12L: the blob is launched hidden behind
+          the occulter (at 1.3-4.7 Rsun for the default sizes) and its centre crosses the
+          bottom row 12L / v frames later, with the blob fully formed.
+        - v, period and L depend only on the blob's position angle (from syncom_load).
+        - time_0 is a random phase per blob, 1-201 frames, reproducible through `seed`.
+
+    Parameters:
+        params: dict with keys 'syncom_n_blobs', 'syncom_pixel', 'syncom_cadence',
+            'syncom_scale_factor'
+        LoadStruc: output of syncom_load (uses 'outarray')
+        scale_factor: blob size scale factor (default: params['syncom_scale_factor'])
+        seed: random seed of time_0
+
+    Returns:
+        dict of np.ndarray (n_blobs,):
+            psi    [px of 0.1 deg]  position angle
+            r0     [px]             launch radius of the blob centre, from the bottom of the
+                                    image (negative = below the image, behind the occulter)
+            v      [px/frame]       radial speed
+            period [frames]         time between two launches of the same blob
+            L      [px]             angular width (the radial width is 2L)
+            time_0 [frames]         phase: the blob's clock is tau = time_t + time_0
+    """
+    n_blobs = params["syncom_n_blobs"]
+    pixel = params["syncom_pixel"]          # [Rsun/px] radial pixel size
+    cadence = params["syncom_cadence"]      # [s/frame]
+    scale = params["syncom_scale_factor"] if scale_factor is None else scale_factor
+
+    out = LoadStruc["outarray"][:n_blobs]
+    km_per_px = RSUN_KM * pixel
+
+    L = scale * out[:, 6] / 0.1                             # blob size -> [px]
+    r_enter = (out[:, 0] - POLAR_RHO_RANGE[0]) / pixel      # [Rsun] -> [px above 5 Rsun]: where centres enter the image
+
+    return {
+        "psi": out[:, 7].astype(float),
+        "r0": r_enter - EDGE_SIGMAS * 2 * L,                # launch 6 radial widths below it [px]
+        "v": out[:, 5] * cadence / km_per_px,               # [km/s] -> [px/frame]
+        "period": out[:, 4] / cadence,                      # [s] -> [frames]
+        "L": L,
+        "time_0": np.random.default_rng(seed).uniform(1.0, 201.0, n_blobs),
     }
