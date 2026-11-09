@@ -1,0 +1,13 @@
+# Simulation outputs (FITS frames, cubes, movies) - large, regenerate with the notebook
+SynCOM_runs/
+
+# Python cache and saved parameter files
+__pycache__/
+*.pyc
+syncom_params.npy
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/

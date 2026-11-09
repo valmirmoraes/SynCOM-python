@@ -4,50 +4,84 @@ Python implementation of **SynCOM** (Synthetic Corona Outflow Model), a simulati
 
 The original SynCOM is written in IDL. This repository translates it to Python and adds tools to work with STEREO/COR2 data and to measure outflow speeds.
 
-## Notebooks
+## Repository layout
 
-| Notebook | What it does |
+SynCOM is split into Python modules that the notebook imports:
+
+| File | What it does |
 |---|---|
-| [`SynCOM_python_functions_v2.ipynb`](SynCOM_python_functions_v2.ipynb) | **Recommended.** SynCOM translation that reproduces the IDL code (`syncom.pro`, `syncom_load.pro`, `syncom_image.pro`). Given the same blobs it matches the IDL FITS output to floating-point precision. Includes tools to load and replay an IDL run, and MP4 movie output. |
-| [`SynCOM_python_functions.ipynb`](SynCOM_python_functions.ipynb) | Version 1 of the translation, with a vectorized image generator and MP4 movie output. Kept for reference. It differs from IDL in blob placement and in how harmonic copies are summed (see the notes at the top of v2). |
-| [`COR2_data_pipeline.ipynb`](COR2_data_pipeline.ipynb) | Loads STEREO/COR2 FITS files into a 3D array, fixes known bad pixels, resamples along the radial axis and saves the result as `.npy`. |
-| [`TDC_method.ipynb`](TDC_method.ipynb) | Time-delay correlation (TDC) method: estimates the outflow velocity at each position angle by cross-correlating brightness time series at two radial distances. |
-| [`open_file.ipynb`](open_file.ipynb) | Helpers to open SynCOM/COR2 FITS data (raw, normalized, with header) and fix bad pixels. |
+| [`SynCOM_python_notebook.ipynb`](SynCOM_python_notebook.ipynb) | Step-by-step run of the model: parameters, blob profiles, images, cube, movies and the polar to Cartesian view. |
+| [`syncom_prams.py`](syncom_prams.py) | `default_syncom_prams`: simulation parameters (grid, cadence, pixel size, number of blobs, ...). |
+| [`syncom_load.py`](syncom_load.py) | `syncom_load`: velocity, period and size of each blob from its position angle; `syncom_blob_table`: the same in pixels and frames, computed once per run. |
+| [`gaussian_function.py`](gaussian_function.py) | `gaussian_profile`, `gaussian_wave`: 1D and 2D Gaussian blob profiles. |
+| [`syncom_image.py`](syncom_image.py) | `syncom_image`: one synthetic image. Every blob is launched each time its period is up, behind the occulter, before and during the whole run. |
+| [`syncom_core.py`](syncom_core.py) | `syncom_core`: runs the time loop and builds the `[NX, NY, NT]` cube. |
+| [`syncom_fits.py`](syncom_fits.py) | `write_fits_frames`: writes only the time steps you choose as FITS files; `load_fits_cube` reads them back. |
+| [`syncom_path.py`](syncom_path.py) | Run names and output folders (`SynCOM_runs/<run name>/...`). |
+| [`syncom_notebook_tests.ipynb`](syncom_notebook_tests.ipynb) | Tests and plots of the periodic blobs: v2 against v3, launch behind the occulter and equal brightness at every radius, one blob reappearing every period, radius–time diagrams, speeds recovered from the cube, the FITS sample. |
+| [`polar_to_rect.py`](polar_to_rect.py) | Polar (position angle x radius) to Cartesian image. |
+| [`syncom_movie.py`](syncom_movie.py) | Plots and MP4 movies of the polar and Cartesian cubes. |
+
+The earlier single-notebook versions (`SynCOM_python_functions.ipynb`, `SynCOM_python_functions_v2.ipynb`) and the COR2 / TDC notebooks (`COR2_data_pipeline.ipynb`, `TDC_method.ipynb`, `open_file.ipynb`) are deprecated on this branch. They are kept in the git history under the tag [`v1-deprecated`](https://github.com/valmirmoraes/SynCOM-python/tree/v1-deprecated).
 
 ## How the SynCOM model works
 
-1. **Parameters** (`default_syncom_prams`): number of blobs, image size in position angle × radius (3600 × 659 by default, matching COR2), cadence (300 s), pixel size (9.744 Mm ≈ 0.014 R☉), start radius, blob size scale, noise and peak brightness.
+1. **Parameters** (`default_syncom_prams`): number of blobs, image size in position angle × radius (3600 × 659 by default, matching COR2), cadence (300 s), pixel size (0.0142 R☉ ≈ 9.87 Mm), the radius where blobs enter the field (5 R☉, the bottom of the polar image), blob size scale, noise and peak brightness.
 2. **Profiles** (`syncom_load`): velocity, period and blob size on a 0.1° position-angle grid. The velocity is either a simple sinusoid (`simple=True`) or the STEREO-derived profile.
-3. **Blobs**: random position angles. Each blob is assigned a velocity, period and size, and is given harmonic copies spaced by its period.
-4. **Images** (`syncom_image`, `syncom_core`): each blob is a 2D Gaussian moved outward at its own speed. The frames are stacked into an `[NX, NY, NT]` cube and can be written to FITS files, a `.npz` cube or an MP4 movie (`save_syncom_movie`).
+3. **Blobs**: random position angles. Each blob is assigned a velocity, period and size (`syncom_blob_table` converts them to pixels and frames once per run).
+4. **Images** (`syncom_image`, `syncom_core`): every blob is a source that launches a 2D Gaussian each time its period is up, from before the first frame to the last. A blob begins from its centre: at launch its centre is six radial widths (12L) below 5 R☉, behind the occulter, so it slides into the field fully formed and the mean brightness is the same at every radius. Each launch moves outward at the blob's speed, so one blob makes a train of launches `v·P` apart, and the field is equally full at every frame. The frames are stacked into an `[NX, NY, NT]` cube, which can be saved as a `.npz`, written to FITS for chosen frames (`write_fits_frames`) or turned into an MP4 movie (`save_syncom_movie`, `save_rect_movie`).
 
 ## Quick start
 
 ```python
-params = default_syncom_prams(SYNCOM_N_BLOBS=5000, DATE="2023-04-11")
+from syncom_prams import default_syncom_prams
+from syncom_core import syncom_core
+from syncom_movie import save_syncom_movie
+
+params = default_syncom_prams(SYNCOM_N_BLOBS=2000)
 
 cube = syncom_core(
-    N_BLOBS=5000,
+    2000,               # number of blobs
     time0=0,
     time_t=20,          # frames 0-19
-    syncom_version="v2",
-    simple=True,        # sinusoidal velocity profile
+    syncom_version="v3",
+    scale_factor=2.0,
+    simple=True,        # sinusoidal velocity profile 250 + 100 cos(2 theta) km/s
     params=params,
-    save_fits=False,    # True writes one ~19 MB FITS file per frame
 )
 
-plot_syncom_image(cube[:, :, 0])
-save_syncom_movie(cube, filename="SynCOM_v2_movie.mp4", cadence=params["syncom_cadence"])
+save_syncom_movie(cube, filename="SynCOM_movie.mp4", cadence=params["syncom_cadence"])
+
+# FITS files only for the frames you need (float64, uncompressed, ~19 MB each)
+from syncom_fits import write_fits_frames
+write_fits_frames(cube, "SynCOM_v3_N_BLOBS_2000_SCALE_FACTOR_2.0", frames=range(0, 20), params=params)
 ```
 
-Run the notebook cells in order: the functions above are defined in `SynCOM_python_functions_v2.ipynb`.
+Outputs are written to `SynCOM_runs/<run name>/` (FITS frames, cube, movies). This folder is not tracked by git.
 
-> **Note:** in v2, `FREQ_FILE` and the IDL run paths (`IDL_ROUTINES_DIR`, `IDL_RUN_DIR`) point to a local external drive. Edit them in the second code cell to match your setup. `FREQ_FILE` (`velocity_stereo_0_to_1.sav`) provides the STEREO velocity and frequency profiles.
+## Sample data
+
+[`sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0/`](sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0/) holds time steps 0–29 (2.5 h at 300 s cadence) of the notebook run: 10000 blobs, scale factor 1, `simple=True`, 500 frames in total. Each file is float64, uncompressed, shape (659, 3600) = (radius, position angle), about 19 MB. Read them with:
+
+```python
+from syncom_fits import load_fits_cube
+cube = load_fits_cube("sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0",
+                      "SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0", 0, 30, 3600, 659)
+```
+
+## Versions
+
+| tag | what it is |
+|---|---|
+| `v1-deprecated` | the earlier single-notebook versions |
+| `v2-fixed` | the modular package with the fixed model. Each blob is a fixed train of 7 copies, so blobs run out before the end of the simulation. |
+| `v3-periodic_blobs` | every blob is launched again each time its period is up, behind the occulter, so the field is equally full at every frame and every radius (see `syncom_notebook_tests.ipynb`) |
 
 ## Requirements
 
-- Python 3.9+ (v2 was developed with Python 3.12)
+- Python 3.9+ (developed with Python 3.12)
 - `numpy`, `scipy`, `astropy`, `matplotlib`
+- `punchbowl` (PUNCH colormap used in the plots)
 - `ffmpeg` for MP4 output (`conda install -c conda-forge ffmpeg`)
 
 ```bash
