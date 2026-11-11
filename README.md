@@ -69,6 +69,23 @@ cube = load_fits_cube("sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCAL
                       "SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0", 0, 30, 3600, 659)
 ```
 
+## Expected run times
+
+Time to simulate 300 frames with `syncom_core` (the `syncom_image` loop), measured on an Apple M5:
+
+| blobs \ scale factor | 1.0 | 2.0 | 3.0 | 4.0 |
+|---|---|---|---|---|
+| 1000 | 11 s | 14 s | 14 s | 16 s |
+| 2000 | 20 s | 22 s | 26 s | 28 s |
+| 5000 | 47 s | 54 s | 62 s | 70 s |
+| 10000 | 96 s | 109 s | 132 s | 150 s |
+
+- **Frames:** time grows linearly with the number of frames.
+- **Scale factor:** going from 1.0 to 4.0 adds 40–56%. Each blob is launched 12L below the field and drawn until it is 12L above it, so larger blobs mean more launches per frame. One frame takes about 7–8 µs per launch drawn.
+- **Saving:** `save=True` adds about 2 min per 300 frames (117 s for a 5.3 GB compressed float64 `.npz`), whatever the number of blobs.
+- **Movies:** the polar and Cartesian movies add about 50 s per 300 frames.
+- **Memory:** the cube needs 5.7 GB per 300 frames (3600 × 659 float64 values per frame).
+
 ## Versions
 
 | tag | what it is |

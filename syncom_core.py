@@ -30,6 +30,8 @@ def syncom_core(
         - No FITS files are written; use syncom_fits.write_fits_frames(cube, run_name,
           frames=...) for the frames you want.
         - save=True writes SynCOM_runs/<run>/cubes/<run>_cube.npz (float64, as before).
+        - Progress is printed at 0%, 25%, 50% and 75% of the frames, and when done
+          (frames done and elapsed seconds), each once.
 
     Parameters:
         N_BLOBS (int): Number of blobs to simulate (must equal params['syncom_n_blobs'])
@@ -72,9 +74,16 @@ def syncom_core(
     nt = time_t - time0
     syncom_data = np.zeros((nx, ny, nt), dtype=float)
 
-    # 5. Run simulation loop
+    # 5. Run simulation loop, printing progress at 0, 25, 50, 75 % and when done
+    print(f"  0% (0/{nt} frames)")
+    quarter = 1                                  # next milestone: quarter * 25 %
     for t in range(time0, time_t):
         syncom_data[:, :, t - time0] = syncom_image(params, blobs, t, gx=gx)
+        done = t - time0 + 1
+        while quarter < 4 and done * 4 >= quarter * nt:
+            print(f"  {quarter * 25}% ({done}/{nt} frames, {time.time() - start_time:.0f} s)")
+            quarter += 1
+    print(f"  done ({nt} frames, {time.time() - start_time:.0f} s)")
 
     # 6. Optionally save output
     if save:

@@ -17,10 +17,12 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 
+from syncom_header import syncom_fits_header
 from syncom_path import syncom_output_path
 
 
-def write_fits_frames(cube, run_name, frames=None, time0=0, params=None, overwrite=True):
+def write_fits_frames(cube, run_name, frames=None, time0=0, params=None, overwrite=True,
+                      start_time=None):
     """
     Write chosen frames of a SynCOM cube as one FITS file per time step.
 
@@ -32,9 +34,11 @@ def write_fits_frames(cube, run_name, frames=None, time0=0, params=None, overwri
             None writes every frame of the cube.
         time0 (int): time step of cube[:, :, 0] (the `time0` given to syncom_core).
             Time step t is cube index t - time0.
-        params (dict): optional; if given, cadence, pixel size and number of blobs
-            are stored in each FITS header
+        params (dict): optional; if given, the WCS and the model parameters are stored
+            in each FITS header (see syncom_header.syncom_fits_header)
         overwrite (bool): replace existing files with the same name
+        start_time (astropy.time.Time or str): optional; UTC time of time step 0,
+            adds DATE-OBS to each header (needs params)
 
     Returns:
         list of Path: the files written, in the order of `frames`
@@ -59,17 +63,9 @@ def write_fits_frames(cube, run_name, frames=None, time0=0, params=None, overwri
         if not 0 <= k < nt:
             raise IndexError(f"time step {t} is outside the cube (time steps {time0}..{time0 + nt - 1})")
 
-        # Header: what the file is, so it can be identified without the notebook
-        header = fits.Header()
-        header["RUNNAME"] = run_name                    # SynCOM run label (no comment: long names fill the card)
-        header["TSTEP"] = (t, "time step [frames]")
-        header["AXIS1"] = ("position angle", "0.1 deg per pixel")
-        header["AXIS2"] = ("radius", "pixel 0 = inner edge of the field")
-        if params is not None:
-            header["CADENCE"] = (params["syncom_cadence"], "[s] time between frames")
-            header["TIME"] = (t * params["syncom_cadence"], "[s] time since time step 0")
-            header["PIXEL"] = (params["syncom_pixel"], "[Rsun] radial pixel size")
-            header["NBLOBS"] = (params["syncom_n_blobs"], "number of blobs")
+        # Header: what the file is, so it can be identified without the notebook (syncom_header.py)
+        header = syncom_fits_header(run_name, t, params=params, start_time=start_time,
+                                    nx=cube.shape[0], ny=cube.shape[1])
 
         # .T -> (NY, NX) = (radius, position angle), the layout FlowTrack expects
         filename = syncom_output_path(run_name, "fits", f"{t:04d}.fts")
