@@ -1,7 +1,9 @@
 import numpy as np
 
-from syncom_prams import POLAR_RHO_RANGE
+from syncom_prams import POLAR_R_MIN
 from syncom_image import EDGE_SIGMAS
+# Planets (on/off: params["syncom_planets"], see syncom_planets.py), re-exported for syncom_core
+from syncom_planets import syncom_planet_table, add_planets, local_sigma, planet_rows, planet_sigmas
 
 
 DEG2RAD = np.pi / 180.0
@@ -171,7 +173,7 @@ def syncom_blob_table(params, LoadStruc, scale_factor=None, seed=22):
     km_per_px = RSUN_KM * pixel
 
     L = scale * out[:, 6] / 0.1                             # blob size -> [px]
-    r_enter = (out[:, 0] - POLAR_RHO_RANGE[0]) / pixel      # [Rsun] -> [px above 5 Rsun]: where centres enter the image
+    r_enter = (out[:, 0] - POLAR_R_MIN) / pixel      # [Rsun] -> [px above 5 Rsun]: where centres enter the image
 
     return {
         "psi": out[:, 7].astype(float),

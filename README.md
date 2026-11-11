@@ -93,6 +93,8 @@ Time to simulate 300 frames with `syncom_core` (the `syncom_image` loop), measur
 | `v1-deprecated` | the earlier single-notebook versions |
 | `v2-fixed` | the modular package with the fixed model. Each blob is a fixed train of 7 copies, so blobs run out before the end of the simulation. |
 | `v3-periodic_blobs` | every blob is launched again each time its period is up, behind the occulter, so the field is equally full at every frame and every radius (see `syncom_notebook_tests.ipynb`) |
+| `v3.1-periodic_blobs` | FITS headers with a WCS and the model parameters (`syncom_header.py`), progress printing, the notebook set for the 5–180 R☉ field |
+| `v4-planet_body` | planets in the frames (`syncom_planets.py`): positions from the ephemeris at every time step, brightness, size and saturation calibrated on PUNCH L3 CAM frames; plots and movies take their axes from the run's `params` |
 
 ## Requirements
 

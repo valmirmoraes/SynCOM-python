@@ -20,7 +20,7 @@ from astropy.io import fits
 from astropy.time import Time
 
 from syncom_path import syncom_output_path, syncom_run_dir
-from syncom_prams import POLAR_PHI_RANGE, polar_rho_range
+from syncom_prams import polar_ranges
 
 CREATOR = "SynCOM_python"
 
@@ -66,13 +66,14 @@ def syncom_fits_header(run_name, t, params=None, start_time=None, nx=None, ny=No
         - With params:
             * TIME = t * cadence [s]
             * linear WCS, FITS pixel 1 = array index 0:
-                axis 1 (position angle): CTYPE1 'PA', CUNIT1 'deg', CRVAL1 = POLAR_PHI_RANGE[0],
-                    CDELT1 = (POLAR_PHI_RANGE[1] - POLAR_PHI_RANGE[0]) / (NX - 1)
-                    (0.1 deg for NX = 3600, the same grid polar_to_rect uses)
-                axis 2 (radius): CTYPE2 'RADIUS', CUNIT2 'solRad', CRVAL2 = r_min of
-                    polar_rho_range(params), CDELT2 = params["syncom_pixel"]
+                axis 1 (position angle): CTYPE1 'PA', CUNIT1 'deg', CRVAL1 and CDELT1 from
+                    polar_ranges(params) (0.1 deg for NX = 3600, the grid polar_to_rect uses)
+                axis 2 (radius): CTYPE2 'RADIUS', CUNIT2 'solRad', CRVAL2 = 5 Rsun,
+                    CDELT2 = params["syncom_pixel"]
             * one card per entry of PARAM_CARDS found in params
-        - With start_time and params: DATE-OBS in ISO format (UTC).
+        - With start_time and params: DATE-OBS in ISO format (UTC). start_time defaults to
+          params["syncom_start_time"] when that is set.
+        - With params: PLANETS = the planets drawn (e.g. 'mercury'), or 'none'.
         - `extra` cards are added last and can override any card above.
         - The header does not contain SIMPLE/BITPIX/NAXIS; fits.writeto adds them from the data.
     """
@@ -89,6 +90,8 @@ def syncom_fits_header(run_name, t, params=None, start_time=None, nx=None, ny=No
     if params is not None:
         cadence = float(params["syncom_cadence"])
         header["TIME"] = (t * cadence, "[s] time since time step 0")
+        if start_time is None:
+            start_time = params.get("syncom_start_time")        # set by SYNCOM_START_TIME (planet runs)
         if start_time is not None:
             date_obs = Time(start_time, scale="utc") + t * cadence / 86400.0
             header["DATE-OBS"] = (date_obs.isot, "UTC time of this frame")
@@ -99,12 +102,14 @@ def syncom_fits_header(run_name, t, params=None, start_time=None, nx=None, ny=No
 
     if params is not None:
         nx = int(nx if nx is not None else params["syncom_nx"])
-        r_min, _ = polar_rho_range(params)
+        (phi_min, _), (r_min, _) = polar_ranges(params)
+        dphi = 360.0 / nx                                    # column j at phi_min + j * 360 / NX
         header["CTYPE1"] = ("PA", "position angle")
         header["CUNIT1"] = ("deg", "")
         header["CRPIX1"] = (1.0, "reference pixel (first column)")
-        header["CRVAL1"] = (float(POLAR_PHI_RANGE[0]), "[deg] position angle of CRPIX1")
-        header["CDELT1"] = ((POLAR_PHI_RANGE[1] - POLAR_PHI_RANGE[0]) / (nx - 1), "[deg] per pixel")
+        header["CRVAL1"] = (float(phi_min), "[deg] position angle of CRPIX1")
+        header["CDELT1"] = (float(dphi), "[deg] per pixel")
+        header["AXIS1"] = ("position angle", f"{dphi:g} deg per pixel")
         header["CTYPE2"] = ("RADIUS", "distance from Sun centre")
         header["CUNIT2"] = ("solRad", "")
         header["CRPIX2"] = (1.0, "reference pixel (first row)")
@@ -115,6 +120,8 @@ def syncom_fits_header(run_name, t, params=None, start_time=None, nx=None, ny=No
         for key, (keyword, comment) in PARAM_CARDS.items():
             if key in params and params[key] is not None:
                 header[keyword] = (_to_header_value(params[key]), comment)
+        planets = tuple(params.get("syncom_planets", ()) or ())
+        header["PLANETS"] = (",".join(planets) if planets else "none", "planets drawn (syncom_planets.py)")
 
     header["COMMENT"] = "SynCOM synthetic image; intensity in arbitrary units."
     header["COMMENT"] = "Image shape (NY, NX) = (radius, position angle)."
