@@ -10,19 +10,20 @@ SynCOM is split into Python modules that the notebook imports:
 
 | File | What it does |
 |---|---|
-| [`SynCOM_python_notebook.ipynb`](SynCOM_python_notebook.ipynb) | Step-by-step run of the model: parameters, blob profiles, images, cube, movies and the polar to Cartesian view. |
+| [`SynCOM_python_GitHub_notebook.ipynb`](SynCOM_python_GitHub_notebook.ipynb) | Step-by-step run of the model: parameters, blob profiles, images, cube, planets, FITS frames, movies and the polar to Cartesian view. |
 | [`syncom_prams.py`](syncom_prams.py) | `default_syncom_prams`: simulation parameters (grid, cadence, pixel size, number of blobs, ...). |
 | [`syncom_load.py`](syncom_load.py) | `syncom_load`: velocity, period and size of each blob from its position angle; `syncom_blob_table`: the same in pixels and frames, computed once per run. |
 | [`gaussian_function.py`](gaussian_function.py) | `gaussian_profile`, `gaussian_wave`: 1D and 2D Gaussian blob profiles. |
 | [`syncom_image.py`](syncom_image.py) | `syncom_image`: one synthetic image. Every blob is launched each time its period is up, behind the occulter, before and during the whole run. |
 | [`syncom_core.py`](syncom_core.py) | `syncom_core`: runs the time loop and builds the `[NX, NY, NT]` cube. |
 | [`syncom_fits.py`](syncom_fits.py) | `write_fits_frames`: writes only the time steps you choose as FITS files; `load_fits_cube` reads them back. |
+| [`syncom_header.py`](syncom_header.py) | FITS header of each frame: run name, time step, a linear WCS (position angle, radius) and the model parameters. |
+| [`syncom_planets.py`](syncom_planets.py) | Planets in the frames: ephemeris positions at every time step, brightness, size and saturation calibrated on PUNCH L3 CAM frames. |
 | [`syncom_path.py`](syncom_path.py) | Run names and output folders (`SynCOM_runs/<run name>/...`). |
-| [`syncom_notebook_tests.ipynb`](syncom_notebook_tests.ipynb) | Tests and plots of the periodic blobs: v2 against v3, launch behind the occulter and equal brightness at every radius, one blob reappearing every period, radius–time diagrams, speeds recovered from the cube, the FITS sample. |
 | [`polar_to_rect.py`](polar_to_rect.py) | Polar (position angle x radius) to Cartesian image. |
 | [`syncom_movie.py`](syncom_movie.py) | Plots and MP4 movies of the polar and Cartesian cubes. |
 
-The earlier single-notebook versions (`SynCOM_python_functions.ipynb`, `SynCOM_python_functions_v2.ipynb`) and the COR2 / TDC notebooks (`COR2_data_pipeline.ipynb`, `TDC_method.ipynb`, `open_file.ipynb`) are deprecated on this branch. They are kept in the git history under the tag [`v1-deprecated`](https://github.com/valmirmoraes/SynCOM-python/tree/v1-deprecated).
+The earlier single-notebook versions (`SynCOM_python_functions.ipynb`, `SynCOM_python_functions_v2.ipynb`) and the COR2 / TDC notebooks (`COR2_data_pipeline.ipynb`, `TDC_method.ipynb`, `open_file.ipynb`) are deprecated. They are kept in the git history under the tag [`v1-deprecated`](https://github.com/valmirmoraes/SynCOM-python/tree/v1-deprecated).
 
 ## How the SynCOM model works
 
@@ -59,16 +60,6 @@ write_fits_frames(cube, "SynCOM_v3_N_BLOBS_2000_SCALE_FACTOR_2.0", frames=range(
 
 Outputs are written to `SynCOM_runs/<run name>/` (FITS frames, cube, movies). This folder is not tracked by git.
 
-## Sample data
-
-[`sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0/`](sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0/) holds time steps 0–29 (2.5 h at 300 s cadence) of the notebook run: 10000 blobs, scale factor 1, `simple=True`, 500 frames in total. Each file is float64, uncompressed, shape (659, 3600) = (radius, position angle), about 19 MB. Read them with:
-
-```python
-from syncom_fits import load_fits_cube
-cube = load_fits_cube("sample_FITS/SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0",
-                      "SynCOM_v3.1-periodic_blobs_N_BLOBS_10000_SCALE_FACTOR_1.0", 0, 30, 3600, 659)
-```
-
 ## Expected run times
 
 Time to simulate 300 frames with `syncom_core` (the `syncom_image` loop), measured on an Apple M5:
@@ -92,7 +83,7 @@ Time to simulate 300 frames with `syncom_core` (the `syncom_image` loop), measur
 |---|---|
 | `v1-deprecated` | the earlier single-notebook versions |
 | `v2-fixed` | the modular package with the fixed model. Each blob is a fixed train of 7 copies, so blobs run out before the end of the simulation. |
-| `v3-periodic_blobs` | every blob is launched again each time its period is up, behind the occulter, so the field is equally full at every frame and every radius (see `syncom_notebook_tests.ipynb`) |
+| `v3-periodic_blobs` | every blob is launched again each time its period is up, behind the occulter, so the field is equally full at every frame and every radius (tests and plots in `syncom_notebook_tests.ipynb` at this tag) |
 | `v3.1-periodic_blobs` | FITS headers with a WCS and the model parameters (`syncom_header.py`), progress printing, the notebook set for the 5–180 R☉ field |
 | `v4-planet_body` | planets in the frames (`syncom_planets.py`): positions from the ephemeris at every time step, brightness, size and saturation calibrated on PUNCH L3 CAM frames; plots and movies take their axes from the run's `params` |
 
