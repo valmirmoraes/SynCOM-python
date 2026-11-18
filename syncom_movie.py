@@ -22,6 +22,28 @@ def _polar_extent(params, shape):
     return (p0 - dp / 2, p1 + dp / 2, r0 - dr / 2, r1 + dr / 2)
 
 
+def _fit_suptitle(fig, texts, fontsize=11, min_fontsize=6, margin=0.96):
+    """
+    Adds a figure suptitle and lowers its font size until the widest of `texts` (every string the
+    title will show during the movie) fits inside `margin` x figure width, so nothing is clipped.
+    Returns the Text object; update it with set_text() per frame.
+    """
+    ttl = fig.suptitle("", fontsize=fontsize)
+    renderer = fig.canvas.get_renderer()
+    max_w = margin * fig.bbox.width
+    while True:
+        widest = 0.0
+        for s in texts:
+            ttl.set_text(s)
+            widest = max(widest, ttl.get_window_extent(renderer).width)
+        if widest <= max_w or fontsize <= min_fontsize:
+            break
+        fontsize = max(min_fontsize, fontsize * max_w / widest * 0.98)
+        ttl.set_fontsize(fontsize)
+    ttl.set_text(texts[0])
+    return ttl
+
+
 def _run_timing(params, start_time, cadence):
     """cadence [s] and start time (astropy Time or None): given values first, then params."""
     if cadence is None:
@@ -129,12 +151,12 @@ def save_syncom_movie(cube, filename="SynCOM_movie.mp4", title="SynCOM", params=
 
     def frame_title(i, k):
         if start_time is None:
-            return f"{title}   t = {k * cadence:.0f} s   frame {i + 1}/{len(frames)}"
+            return f"{title}\nt = {k * cadence:.0f} s   frame {i + 1}/{len(frames)}"
         t = (start_time + TimeDelta(k * cadence, format="sec")).isot
-        return f"{title}   {t} UTC   frame {i + 1}/{len(frames)}"
+        return f"{title}\n{t} UTC   frame {i + 1}/{len(frames)}"
 
     fig, ax = plt.subplots(figsize=figsize)
-    fig.subplots_adjust(left=0.07, right=0.93, bottom=0.12, top=0.88)   # fixed layout -> no jitter
+    fig.subplots_adjust(left=0.07, right=0.93, bottom=0.12, top=0.86)   # fixed layout -> no jitter
     im = ax.imshow(cube[:, :, frames[0]].T, origin="lower", aspect="auto", cmap=cmap,
                    vmin=vmin, vmax=vmax, extent=extent)
     cax = make_axes_locatable(ax).append_axes("right", size="2%", pad=0.12)   # colour bar as tall as the image
@@ -145,7 +167,8 @@ def save_syncom_movie(cube, filename="SynCOM_movie.mp4", title="SynCOM", params=
     else:
         ax.set_xlabel("Position Angle [deg]")
         ax.set_ylabel(r"Radial Distance [$R_\odot$]")
-    ttl = fig.suptitle(frame_title(0, frames[0]), fontsize=11)              # spans the whole figure
+    # first and last titles are the widest candidates; font shrinks if either would be clipped
+    ttl = _fit_suptitle(fig, [frame_title(0, frames[0]), frame_title(len(frames) - 1, frames[-1])])
 
     # yuv420p + even dimensions -> plays in QuickTime, browsers, PowerPoint, etc.
     writer = animation.FFMpegWriter(
@@ -215,19 +238,20 @@ def save_rect_movie(cube, filename, title, params=None, start_time=None, cadence
 
     def frame_title(i, k):
         if start_time is None:
-            return f"{title}   t = {k * cadence:.0f} s   frame {i + 1}/{len(frames)}"
+            return f"{title}\nt = {k * cadence:.0f} s   frame {i + 1}/{len(frames)}"
         t = (start_time + TimeDelta(k * cadence, format="sec")).isot
-        return f"{title}   {t} UTC   frame {i + 1}/{len(frames)}"
+        return f"{title}\n{t} UTC   frame {i + 1}/{len(frames)}"
 
     fig, ax = plt.subplots(figsize=(8, 7.4))
-    fig.subplots_adjust(left=0.09, right=0.9, bottom=0.07, top=0.93)   # fixed layout -> no jitter
+    fig.subplots_adjust(left=0.09, right=0.9, bottom=0.07, top=0.91)   # fixed layout -> no jitter
     im = ax.imshow(rect_frame(frames[0]), origin="lower", cmap=cmap, vmin=vmin, vmax=vmax,
                    extent=[-rho_max, rho_max, -rho_max, rho_max])
     cax = make_axes_locatable(ax).append_axes("right", size="4%", pad=0.12)   # colour bar as tall as the image
     fig.colorbar(im, cax=cax, label=label)
     ax.set_xlabel(r"X [$R_\odot$]")
     ax.set_ylabel(r"Y [$R_\odot$]")
-    ttl = fig.suptitle(frame_title(0, frames[0]), fontsize=11)              # spans the whole figure
+    # first and last titles are the widest candidates; font shrinks if either would be clipped
+    ttl = _fit_suptitle(fig, [frame_title(0, frames[0]), frame_title(len(frames) - 1, frames[-1])])
 
     writer = animation.FFMpegWriter(
         fps=fps, codec="libx264",
